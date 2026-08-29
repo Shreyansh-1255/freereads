@@ -209,16 +209,48 @@
     border:1px solid var(--line);
     border-left:4px solid var(--brass);
     border-radius:3px;
-    padding:14px 16px 15px;
+    padding:12px 14px;
     display:flex;
-    flex-direction:column;
-    gap:6px;
+    flex-direction:row;
+    gap:12px;
+    align-items:flex-start;
     position:relative;
     transition:transform .12s ease, box-shadow .12s ease;
   }
   .book-card:hover{
     transform:translateY(-2px);
     box-shadow:0 10px 18px rgba(23,21,9,0.12);
+  }
+  .cover{
+    flex-shrink:0;
+    width:84px;
+    height:122px;
+    border-radius:2px;
+    object-fit:cover;
+    background:var(--parchment-deep);
+    box-shadow:0 2px 5px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.08);
+  }
+  .cover-fallback{
+    flex-shrink:0;
+    width:84px;
+    height:122px;
+    border-radius:2px;
+    background:linear-gradient(160deg, var(--moss), var(--moss-deep));
+    box-shadow:0 2px 5px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.08);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:'Fraunces', serif;
+    font-style:italic;
+    font-weight:600;
+    font-size:30px;
+    color:var(--brass-light);
+  }
+  .book-body{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    min-width:0;
   }
   .src-tag{
     font-family:'JetBrains Mono', monospace;
@@ -300,12 +332,12 @@
 <header>
   <p class="eyebrow">The Open Stacks · Meta-Search</p>
   <h1>"I have always imagined that Paradise will be a kind of library."<span class="attr">— Jorge Luis Borges</span></h1>
-  <p class="tagline">Search Project Gutenberg, Open Library, Internet Archive, LibriVox and Wikisource at once. Every result sends you straight to the original, legal source — nothing is hosted here.</p>
+  <p class="tagline">Search Project Gutenberg, Open Library, Internet Archive and LibriVox at once. Every result sends you straight to the original, legal source — nothing is hosted here.</p>
 
   <div class="drawer">
     <div class="drawer-front">
       <span class="drawer-label mono">SEARCH</span>
-      <input id="q" type="text" placeholder="try: the odyssey, sherlock holmes..." autocomplete="off">
+      <input id="q" type="text" placeholder="try: the odyssey, sherlock holmes..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <button class="pull" id="go" aria-label="Search">
         <svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.2" y2="16.2"/></svg>
       </button>
@@ -317,7 +349,6 @@
     <span class="chip on" data-src="openlibrary">Open Library</span>
     <span class="chip on" data-src="archive">Internet Archive</span>
     <span class="chip on" data-src="librivox">LibriVox (audio)</span>
-    <span class="chip on" data-src="wikisource">Wikisource</span>
   </div>
 </header>
 
@@ -343,7 +374,7 @@ const goBtn = document.getElementById('go');
 const filters = document.getElementById('filters');
 const stdLink = document.getElementById('stdlink');
 
-const activeSources = new Set(['gutenberg','openlibrary','archive','librivox','wikisource']);
+const activeSources = new Set(['gutenberg','openlibrary','archive','librivox']);
 
 filters.addEventListener('click', (e)=>{
   const chip = e.target.closest('.chip');
@@ -357,12 +388,18 @@ function esc(s){
   return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function cardHTML({src, title, meta, url}){
+function cardHTML({src, title, meta, url, cover}){
+  const coverHTML = cover
+    ? `<img class="cover" src="${cover}" alt="" loading="lazy" onerror="this.outerHTML='<div class=&quot;cover-fallback&quot;>${esc((title||'?').charAt(0).toUpperCase())}</div>'">`
+    : `<div class="cover-fallback">${esc((title||'?').charAt(0).toUpperCase())}</div>`;
   return `<div class="book-card">
-    <span class="src-tag mono">${src}</span>
-    <p class="book-title">${esc(title)}</p>
-    <p class="book-meta">${esc(meta)}</p>
-    <a class="open-link" href="${url}" target="_blank" rel="noopener">Open on ${src} →</a>
+    ${coverHTML}
+    <div class="book-body">
+      <span class="src-tag mono">${src}</span>
+      <p class="book-title">${esc(title)}</p>
+      <p class="book-meta">${esc(meta)}</p>
+      <a class="open-link" href="${url}" target="_blank" rel="noopener">Open on ${src} →</a>
+    </div>
   </div>`;
 }
 
@@ -381,7 +418,8 @@ async function searchGutenberg(query){
       src:'Project Gutenberg',
       title:b.title,
       meta:(b.authors||[]).map(a=>a.name).join(', ') || 'Unknown author',
-      url:`https://www.gutenberg.org/ebooks/${b.id}`
+      url:`https://www.gutenberg.org/ebooks/${b.id}`,
+      cover:b.formats && b.formats['image/jpeg'] ? b.formats['image/jpeg'] : null
     }));
   }catch(e){ return []; }
 }
@@ -397,7 +435,8 @@ async function searchOpenLibrary(query){
         src:'Open Library',
         title:d.title,
         meta:(d.author_name||[]).join(', ') || 'Unknown author',
-        url:`https://openlibrary.org${d.key}`
+        url:`https://openlibrary.org${d.key}`,
+        cover:d.cover_i ? `https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg` : null
       }));
   }catch(e){ return []; }
 }
@@ -411,7 +450,8 @@ async function searchArchive(query){
       src:'Internet Archive',
       title:d.title || d.identifier,
       meta:d.creator ? (Array.isArray(d.creator)?d.creator.join(', '):d.creator) : 'Unknown author',
-      url:`https://archive.org/details/${d.identifier}`
+      url:`https://archive.org/details/${d.identifier}`,
+      cover:`https://archive.org/services/img/${d.identifier}`
     }));
   }catch(e){ return []; }
 }
@@ -424,21 +464,8 @@ async function searchLibrivox(query){
       src:'LibriVox (audiobook)',
       title:b.title,
       meta:'Free public-domain audiobook',
-      url:b.url_librivox || 'https://librivox.org'
-    }));
-  }catch(e){ return []; }
-}
-
-async function searchWikisource(query){
-  try{
-    const url = `https://en.wikisource.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*&srlimit=8`;
-    const res = await fetch(url);
-    const data = await res.json();
-    return (data.query?.search || []).map(d => ({
-      src:'Wikisource',
-      title:d.title,
-      meta:'Public-domain text, transcribed by Wikisource',
-      url:`https://en.wikisource.org/wiki/${encodeURIComponent(d.title.replace(/ /g,'_'))}`
+      url:b.url_librivox || 'https://librivox.org',
+      cover:b.coverart_thumbnail || b.coverart_jpg || null
     }));
   }catch(e){ return []; }
 }
@@ -448,7 +475,6 @@ const SOURCES = {
   openlibrary:{ label:'Open Library',        fn:searchOpenLibrary },
   archive:    { label:'Internet Archive',    fn:searchArchive },
   librivox:   { label:'LibriVox',            fn:searchLibrivox },
-  wikisource: { label:'Wikisource',          fn:searchWikisource },
 };
 
 async function runSearch(){
