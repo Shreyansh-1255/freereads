@@ -2,7 +2,7 @@
 
 Search public-domain and free ebooks across multiple legal libraries at once — one search box, five sources, zero hosting.
 
-**[Live demo →](https://yourusername.github.io/freereads/)**
+**[Live demo →](https://shreyansh-1255.github.io/freereads/)**
 
 ## What it does
 
